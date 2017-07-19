@@ -2,7 +2,7 @@
 Code for training different architectures on ImageNet dataset + Multi-GPU support + Transfer Learning support
 
 This repository provides an easy-to-use way for training different well-known deep learning architectures on different datasets.
-Multi-GPU and transfer learning is also supported.
+The code directly load images from disk. Moreover, multi-GPU and transfer learning is also supported.
 This code is mainly based on these repositories:
 
 https://github.com/soumith/imagenet-multiGPU.torch
