@@ -1,5 +1,4 @@
 import architectures.alexnet
-import architectures.nin
 import architectures.resnet
 
 def get_model(inputs, wd, is_training, args, transferMode= False):
