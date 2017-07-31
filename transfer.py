@@ -20,7 +20,7 @@ def exclude():
   var_list = tf.global_variables()
   to_remove = []
   for var in var_list:
-      if(var.name.startswith("transfer_output")):
+      if(var.name.find("transfer_output")>0):
         to_remove.append(var)
   for x in to_remove:
       var_list.remove(x)

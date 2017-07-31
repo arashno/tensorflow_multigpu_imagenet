@@ -72,6 +72,9 @@ def flatten(x):
       dim*=shape[i]
     return tf.reshape(x, [-1, dim])
 
+def treshold(x, treshold):
+    return tf.cast(x > treshold, x.dtype) * x
+
 def fullyConnected(x, num_units_out, wd= 0.0, weight_initializer= None, bias_initializer= None):
     num_units_in = x.get_shape()[1]
 
@@ -108,6 +111,12 @@ def spatialConvolution(x, ksize, stride, filters_out, wd= 0.0, weight_initialize
     
 def maxPool(x, ksize, stride):
     return tf.nn.max_pool(x,
+                          ksize=[1, ksize, ksize, 1],
+                          strides=[1, stride, stride, 1],
+                          padding='SAME')
+
+def avgPool(x, ksize, stride):
+    return tf.nn.avg_pool(x,
                           ksize=[1, ksize, ksize, 1],
                           strides=[1, stride, stride, 1],
                           padding='SAME')
