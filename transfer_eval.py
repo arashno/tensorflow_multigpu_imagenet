@@ -111,7 +111,7 @@ def main():
   parser.add_argument('--num_threads', default= 8, type= int, action= 'store', help= 'The number of threads for loading data')
   parser.add_argument('--log_dir', default= None, action= 'store', help= 'Path for saving Tensorboard info and checkpoints')
   parser.add_argument('--architecture', default= 'resnet', help= 'The DNN architecture')
-  parser.add_argument('--resnet_depth', default= 50, type= int, help= 'The depth of ResNet architecture')
+  parser.add_argument('--depth', default= 50, type= int, help= 'The depth of ResNet architecture')
   parser.add_argument('--run_name', default= 'Run'+str(time.strftime("-%d-%m-%Y-%H:%M:%S")), action= 'store', help= 'Name of the experiment')
   parser.add_argument('--log_device_placement', default= False, type= bool, help= 'Whether to log device placement or not')
   parser.add_argument('--save_predictions', default= None, action= 'store', help= 'Save top-5 predictions of the networks along with their confidence in the specified file')
