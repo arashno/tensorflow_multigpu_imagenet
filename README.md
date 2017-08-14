@@ -1,5 +1,5 @@
 # tensorflow_multigpu_imagenet
-Code for training different architectures(ResNet, AlexNet, GoogLeNet, VGG, NiN) on ImageNet dataset + Multi-GPU support + Transfer Learning support
+Code for training different architectures( DenseNet, ResNet, AlexNet, GoogLeNet, VGG, NiN) on ImageNet dataset + Multi-GPU support + Transfer Learning support
 
 This repository provides an easy-to-use way for training different well-known deep learning architectures on different datasets.
 The code directly load images from disk. Moreover, multi-GPU and transfer learning is also supported.

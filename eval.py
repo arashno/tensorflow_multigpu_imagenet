@@ -111,7 +111,7 @@ def main():
   parser.add_argument('--data_info'   , default= 'val.txt', action= 'store', help= 'File containing the addresses and labels of testing images')
   parser.add_argument('--num_threads', default= 20, type= int, action= 'store', help= 'The number of threads for loading data')
   parser.add_argument('--architecture', default= 'resnet', help='The DNN architecture')
-  parser.add_argument('--resnet_depth', default= 50, type= int, help= 'The depth of ResNet architecture')
+  parser.add_argument('--depth', default= 50, type= int, help= 'The depth of ResNet architecture')
   parser.add_argument('--log_dir', default= None, action= 'store', help='Path for saving Tensorboard info and checkpoints')
   parser.add_argument('--save_predictions', default= None, action= 'store', help= 'Save top-5 predictions of the networks along with their confidence in the specified file')
 

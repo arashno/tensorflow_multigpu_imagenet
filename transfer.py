@@ -20,7 +20,7 @@ def exclude():
   var_list = tf.global_variables()
   to_remove = []
   for var in var_list:
-      if(var.name.find("transfer_output")>0):
+      if(var.name.find("transfer_output")>=0):
         to_remove.append(var)
   for x in to_remove:
       var_list.remove(x)
@@ -155,7 +155,7 @@ def main():
   parser.add_argument('--log_dir', default= None, action= 'store', help= 'Path for saving Tensorboard info and checkpoints')
   parser.add_argument('--snapshot_prefix', default= 'snapshot', action= 'store', help= 'Prefix for checkpoint files')
   parser.add_argument('--architecture', default= 'resnet', help= 'The DNN architecture')
-  parser.add_argument('--resnet_depth', default= 50, type= int, help= 'The depth of ResNet architecture')
+  parser.add_argument('--depth', default= 50, type= int, help= 'The depth of ResNet architecture')
   parser.add_argument('--run_name', default= 'Run'+str(time.strftime("-%d-%m-%Y_%H-%M-%S")), action= 'store', help= 'Name of the experiment')
   parser.add_argument('--log_device_placement', default= False, type= bool, help= 'Whether to log device placement or not')
   parser.add_argument('--log_debug_info', default= False, type= bool, help= 'Log the runtime information')

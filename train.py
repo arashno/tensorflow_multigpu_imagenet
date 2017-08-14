@@ -260,7 +260,7 @@ def main():  # pylint: disable=unused-argument
     parser.add_argument('--log_dir', default= None, action= 'store', help= 'Path for saving Tensorboard info and checkpoints')
     parser.add_argument('--snapshot_prefix', default= 'snapshot', action= 'store', help= 'Prefix for checkpoint files')
     parser.add_argument('--architecture', default= 'resnet', help= 'The DNN architecture')
-    parser.add_argument('--resnet_depth', default= 50, type= int, action= 'store', help= 'The depth of ResNet architecture')
+    parser.add_argument('--depth', default= 50, type= int, action= 'store', help= 'The depth of ResNet architecture')
     parser.add_argument('--run_name', default= 'Run'+str(time.strftime("-%d-%m-%Y_%H-%M-%S")), action= 'store', help= 'Name of the experiment')
     parser.add_argument('--num_gpus', default= 1, type= int, action= 'store', help= 'Number of GPUs')
     parser.add_argument('--log_device_placement', default= False, type= bool, help= 'Whether to log device placement or not')
