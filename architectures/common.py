@@ -115,11 +115,11 @@ def maxPool(x, ksize, stride):
                           strides=[1, stride, stride, 1],
                           padding='SAME')
 
-def avgPool(x, ksize, stride):
+def avgPool(x, ksize, stride, padding='SAME'):
     return tf.nn.avg_pool(x,
                           ksize=[1, ksize, ksize, 1],
                           strides=[1, stride, stride, 1],
-                          padding='SAME')
+                          padding= padding)
     
 def resnetStack(x, num_blocks, stack_stride, block_filters_internal, bottleneck, wd= 0.0, is_training= True):
     for n in range(num_blocks):

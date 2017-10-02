@@ -65,6 +65,7 @@ def evaluate(args):
       threads = tf.train.start_queue_runners(sess= sess, coord= coord)
       true_count = 0  # Counts the number of correct predictions
       true_count5 = 0
+      all_count = 0
       step = 0
       predictions_format_str = ('%d,%s,%d,%s,%s\n')
       batch_format_str = ('Batch Number: %d, Top-1 Hit: %d, Top-5 Hit: %d, Top-1 Accuracy: %.3f, Top-5 Accuracy: %.3f')
@@ -84,8 +85,8 @@ def evaluate(args):
             out_file.flush()
         true_count += np.sum(predictions)
         true_count5 += np.sum(predictions5)
-        print(batch_format_str%(step, true_count, true_count5, true_count / ((step + 1.0)
-                                                           * args.batch_size), true_count5 / ((step + 1.0) * args.batch_size)))
+        all_count += predictions.shape[0]
+        print(batch_format_str%(step, true_count, true_count5, true_count / all_count, true_count5 / all_count))
         sys.stdout.flush()
         step += 1
 
@@ -106,8 +107,8 @@ def main():
   parser.add_argument('--num_channels', default= 3, type= int, action= 'store', help= 'The number of channels in input images')
   parser.add_argument('--num_batches' , default= -1, type= int, action= 'store', help= 'The number of batches of data')
   parser.add_argument('--path_prefix' , default= './', action='store', help= 'The prefix address for images')
-  parser.add_argument('--delimiter' , default= ' ', action = 'store', help= 'Delimiter for the input files')
-  parser.add_argument('--data_info'  , default= 'tf_test.csv', action='store', help= 'File containing the addresses and labels of testing images')
+  parser.add_argument('--delimiter' , default= ',', action = 'store', help= 'Delimiter for the input files')
+  parser.add_argument('--data_info'  , default= 'gold_expert_info.csv', action='store', help= 'File containing the addresses and labels of testing images')
   parser.add_argument('--num_threads', default= 8, type= int, action= 'store', help= 'The number of threads for loading data')
   parser.add_argument('--log_dir', default= None, action= 'store', help= 'Path for saving Tensorboard info and checkpoints')
   parser.add_argument('--architecture', default= 'resnet', help= 'The DNN architecture')

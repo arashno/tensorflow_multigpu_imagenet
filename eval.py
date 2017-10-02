@@ -67,6 +67,7 @@ def evaluate(args):
       threads = tf.train.start_queue_runners(sess=sess, coord=coord)
       true_predictions_count = 0  # Counts the number of correct predictions
       true_top5_predictions_count = 0
+      all_count = 0
       step = 0
       predictions_format_str = ('%d,%s,%d,%s,%s\n')
       batch_format_str = ('Batch Number: %d, Top-1 Hit: %d, Top-5 Hit: %d, Top-1 Accuracy: %.3f, Top-5 Accuracy: %.3f')
@@ -85,8 +86,8 @@ def evaluate(args):
             out_file.flush()
         true_predictions_count += np.sum(top1_predictions)
         true_top5_predictions_count += np.sum(top5_predictions)
-        print(batch_format_str%(step, true_predictions_count, true_top5_predictions_count, true_predictions_count / ((step + 1.0)
-                                                           * args.batch_size), true_top5_predictions_count / ((step + 1.0) * args.batch_size)))
+        all_count+= top1_predictions.shape[0]
+        print(batch_format_str%(step, true_predictions_count, true_top5_predictions_count, true_predictions_count / all_count, true_top5_predictions_count / all_count))
         sys.stdout.flush()
         step += 1
 
