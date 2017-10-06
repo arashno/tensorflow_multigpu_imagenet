@@ -183,7 +183,7 @@ def transfer(args):
       batchnorm_updates_op = tf.group(*batchnorm_updates)
       train_op = tf.group(apply_gradient_op, batchnorm_updates_op)
     else:
-      train_op = opt.minimize(apply_gradient_op)
+      train_op = apply_gradient_op
 
     # a loader for loading the pretrained model (it does not load the last layer) 
     pretrained_loader = tf.train.Saver(var_list= exclude())
