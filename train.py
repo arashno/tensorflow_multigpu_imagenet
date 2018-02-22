@@ -22,6 +22,19 @@ import arch
 import sys
 import argparse
 
+"""
+   exclude variables when loading a snapshot, this is useful for transfer learning
+"""
+def exclude():
+  var_list = tf.global_variables()
+  to_remove = []
+  for var in var_list:
+    if var.name.find("output")>=0 or var.name.find("epoch_number")>=0: 
+      to_remove.append(var)
+  print(to_remove)
+  for x in to_remove:
+    var_list.remove(x)
+  return var_list
 
 def loss(logits, labels):
   """
@@ -87,21 +100,26 @@ def train(args):
 
     # Read data from disk
     images, labels = data_loader.read_inputs(True, args)
-
+    
+    #epoch number
     epoch_number = tf.get_variable('epoch_number', [], dtype= tf.int32, initializer= tf.constant_initializer(0), trainable= False)
 
     # Decay the learning rate
-    lr = tf.train.piecewise_constant(epoch_number, [19, 30, 44, 53], [
-                                     0.01, 0.005, 0.001, 0.0005, 0.0001], name= 'LearningRate')
+    lr = tf.train.piecewise_constant(epoch_number, args.LR_steps, args.LR_values, name= 'LearningRate')
+
     # Weight Decay policy
-    wd = tf.train.piecewise_constant(
-        epoch_number, [30], [0.0005, 0.0], name= 'WeightDecay')
+    wd = tf.train.piecewise_constant(epoch_number, args.WD_steps, args.WD_values, name= 'WeightDecay')
+   
+    # transfer mode 1 means using the model as a feature extractor, so we don't need batch norm updates and dropout 
+    is_training= not args.transfer_mode[0]==1
 
     # Create an optimizer that performs gradient descent.
     opt = tf.train.MomentumOptimizer(lr, 0.9)
 
     # Calculate the gradients for each model tower.
     tower_grads = []
+    # it is only needed for transfer mode 3 
+    tower_auxgrads = []
     with tf.variable_scope(tf.get_variable_scope()):
       for i in xrange(args.num_gpus):
         with tf.device('/gpu:%d' % i):
@@ -109,14 +127,14 @@ def train(args):
             # Calculate the loss for one tower. This function
             # constructs the entire model but shares the variables across
             # all towers.
-            logits = arch.get_model(images, wd, True, args)
+            logits = arch.get_model(images, wd, is_training, args)
             
             # Top-1 accuracy
             top1acc = tf.reduce_mean(
                 tf.cast(tf.nn.in_top_k(logits, labels, 1), tf.float32))
-            # Top-5 accuracy
-            top5acc = tf.reduce_mean(
-                tf.cast(tf.nn.in_top_k(logits, labels, 5), tf.float32))
+            # Top-n accuracy
+            topnacc = tf.reduce_mean(
+                tf.cast(tf.nn.in_top_k(logits, labels, args.top_n), tf.float32))
 
             # Build the portion of the Graph calculating the losses. Note that we will
             # assemble the total_loss using a custom function below.
@@ -137,7 +155,7 @@ def train(args):
             # Attach a scalar summary for the total loss and top-1 and top-5 accuracies
             tf.summary.scalar('Total Loss', total_loss)
             tf.summary.scalar('Top-1 Accuracy', top1acc)
-            tf.summary.scalar('Top-5 Accuracy', top5acc)
+            tf.summary.scalar('Top-'+str(args.top_n)+' Accuracy', topnacc)
 
             # Reuse variables for the next tower.
             tf.get_variable_scope().reuse_variables()
@@ -146,30 +164,53 @@ def train(args):
             summaries = tf.get_collection(tf.GraphKeys.SUMMARIES, scope)
 
             # Gather batch normaliziation update operations
-            batchnorm_updates = tf.get_collection(
-                tf.GraphKeys.UPDATE_OPS, scope)
+            batchnorm_updates = tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope)
 
-            # Calculate the gradients for the batch of data on this CIFAR tower.
-            grads = opt.compute_gradients(total_loss)
+            # Calculate the gradients for the batch of data on this tower.
+            if args.transfer_mode[0]== 3:
+              # compute gradients for the last layer only
+              grads = opt.compute_gradients(total_loss, var_list= tf.get_collection(tf.GraphKeys.VARIABLES, scope='output'))
+              # compute gradients for all layers
+              auxgrads = opt.compute_gradients(total_loss)
+              tower_auxgrads.append(auxgrads)
+            elif args.transfer_mode[0]==1:
+              grads = opt.compute_gradients(total_loss,var_list= tf.get_collection(tf.GraphKeys.VARIABLES, scope='output'))
+            else:
+              grads = opt.compute_gradients(total_loss)
+
             # Keep track of the gradients across all towers.
             tower_grads.append(grads)
 
     # We must calculate the mean of each gradient. Note that this is the
     # synchronization point across all towers.
     grads = average_gradients(tower_grads)
+    # average all gradients for transfer mode 3
+    if args.transfer_mode[0]== 3:
+      auxgrads = average_gradients(tower_auxgrads)
 
     # Add a summary to track the learning rate and weight decay
     summaries.append(tf.summary.scalar('learning_rate', lr))
     summaries.append(tf.summary.scalar('weight_decay', wd))
 
-    # Group all updates to into a single train op.
-    #with tf.control_dependencies(bn_update_ops):
-    apply_gradient_op = opt.apply_gradients(grads)
-    batchnorm_updates_op = tf.group(*batchnorm_updates)
-    train_op = tf.group(apply_gradient_op, batchnorm_updates_op)
+    # Setup the train operation
+    if args.transfer_mode[0]==3:
+      train_op = tf.cond(tf.less(epoch_number,args.transfer_mode[1]),
+              lambda: tf.group(opt.apply_gradients(grads),*batchnorm_updates), lambda: tf.group(opt.apply_gradients(auxgrads),*batchnorm_updates))
+    elif args.transfer_mode[0]==1:
+      train_op = opt.apply_gradients(grads)
+    else:
+      batchnorm_updates_op = tf.group(*batchnorm_updates)
+      train_op = tf.group(opt.apply_gradients(grads), batchnorm_updates_op)
+
+    # a loader for loading the pretrained model (it does not load the last layer) 
+    if args.retrain_from is not None:
+      if args.transfer_mode[0]==0:
+        pretrained_loader = tf.train.Saver()
+      else:
+        pretrained_loader = tf.train.Saver(var_list= exclude())
 
     # Create a saver.
-    saver = tf.train.Saver(tf.global_variables(), max_to_keep= args.num_epochs)
+    saver = tf.train.Saver(tf.global_variables(), max_to_keep= args.max_to_keep)
 
     # Build the summary operation from the last tower summaries.
     summary_op = tf.summary.merge_all()
@@ -190,11 +231,16 @@ def train(args):
         allow_soft_placement= True, 
         log_device_placement= args.log_device_placement))
 
-    # Continue training from a saved snapshot
+    sess.run(init)
+
+    # Continue training from a saved snapshot, load a pre-trained model
     if args.retrain_from is not None:
-      saver.restore(sess, args.retrain_from)
-    else:
-      sess.run(init)
+      ckpt = tf.train.get_checkpoint_state(args.retrain_from)
+      if ckpt and ckpt.model_checkpoint_path:
+        # Restores from checkpoint
+        pretrained_loader.restore(sess, ckpt.model_checkpoint_path)
+      else:
+        return
 
     # Start the queue runners.
     tf.train.start_queue_runners(sess= sess)
@@ -214,8 +260,8 @@ def train(args):
       for step in xrange(args.num_batches):
     
         start_time = time.time()
-        _, loss_value, top1_accuracy, top5_accuracy = sess.run(
-            [train_op, cross_entropy_mean, top1acc, top5acc], options= run_options, run_metadata= run_metadata)
+        _, loss_value, top1_accuracy, topn_accuracy = sess.run(
+            [train_op, cross_entropy_mean, top1acc, topnacc], options= run_options, run_metadata= run_metadata)
         duration = time.time() - start_time
 
         # Check for errors
@@ -227,9 +273,9 @@ def train(args):
           examples_per_sec = num_examples_per_step / duration
           sec_per_batch = duration / args.num_gpus
 
-          format_str = ('%s: epoch %d, step %d, loss = %.2f, Top-1 = %.2f Top-5 = %.2f (%.1f examples/sec; %.3f '
+          format_str = ('%s: epoch %d, step %d, loss = %.2f, Top-1 = %.2f Top-'+str(args.top_n)+' = %.2f (%.1f examples/sec; %.3f '
                         'sec/batch)')
-          print (format_str % (datetime.now(), epoch, step, loss_value, top1_accuracy, top5_accuracy,
+          print (format_str % (datetime.now(), epoch, step, loss_value, top1_accuracy, topn_accuracy,
                                examples_per_sec, sec_per_batch))
           sys.stdout.flush()
         if step % 100 == 0:
@@ -268,6 +314,13 @@ def main():  # pylint: disable=unused-argument
     parser.add_argument('--retrain_from', default= None, action= 'store', help= 'Continue Training from a snapshot file')
     parser.add_argument('--log_debug_info', default= False, action= 'store', help= 'Logging runtime and memory usage info')
     parser.add_argument('--num_batches', default= -1, type= int, action= 'store', help= 'The number of batches per epoch')
+    parser.add_argument('--transfer_mode', default = [0], nargs='+', type= int, help= 'Transfer mode 0=None , 1=Tune last layer only , 2= Tune all the layers, 3= Tune the last layer at early epochs     (it could be specified with the second number of this argument) and then tune all the layers')
+    parser.add_argument('--LR_steps', type=int, nargs='+', default=[19, 30, 44, 53], help='LR change epochs')
+    parser.add_argument('--LR_values', type=float, nargs='+', default=[0.01, 0.005, 0.001, 0.0005, 0.0001], help='LR change epochs')
+    parser.add_argument('--WD_steps', type=int, nargs='+', default= [30], help='WD change epochs')
+    parser.add_argument('--WD_values', type=float, nargs='+', default=[0.0005, 0.0], help='LR change epochs') 
+    parser.add_argument('--top_n', default= 5, type= int, action= 'store', help= 'Specify the top-N accuracy')
+    parser.add_argument('--max_to_keep', default= 5, type= int, action= 'store', help= 'Maximum number of snapshot files to keep')
     args = parser.parse_args()
 
     # Spliting examples between different GPUs

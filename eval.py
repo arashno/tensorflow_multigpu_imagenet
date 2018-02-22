@@ -32,14 +32,14 @@ def evaluate(args):
         # inference model.
         logits = arch.get_model(images, 0.0, False, args)
 
-        # Calculate predictions accuracies top-1 and top-5
+        # Calculate predictions accuracies top-1 and top-n
         top_1_op = tf.nn.in_top_k(logits, labels, 1)
-        top_5_op = tf.nn.in_top_k(logits, labels, 5)
+        top_n_op = tf.nn.in_top_k(logits, labels, args.top_n)
 
         if args.save_predictions is not None:
-          top5 = tf.nn.top_k(tf.nn.softmax(logits), 5)
-          top5ind= top5.indices
-          top5val= top5.values
+          topn = tf.nn.top_k(tf.nn.softmax(logits), args.top_n)
+          topnind= topn.indices
+          topnval= topn.values
 
         saver = tf.train.Saver(tf.global_variables())
 
@@ -66,28 +66,28 @@ def evaluate(args):
 
       threads = tf.train.start_queue_runners(sess=sess, coord=coord)
       true_predictions_count = 0  # Counts the number of correct predictions
-      true_top5_predictions_count = 0
+      true_topn_predictions_count = 0
       all_count = 0
       step = 0
       predictions_format_str = ('%d,%s,%d,%s,%s\n')
-      batch_format_str = ('Batch Number: %d, Top-1 Hit: %d, Top-5 Hit: %d, Top-1 Accuracy: %.3f, Top-5 Accuracy: %.3f')
+      batch_format_str = ('Batch Number: %d, Top-1 Hit: %d, Top-'+str(args.top_n)+' Hit: %d, Top-1 Accuracy: %.3f, Top-'+str(args.top_n)+' Accuracy: %.3f')
 
       if args.save_predictions is not None:
         out_file = open(args.save_predictions,'w')
       while step < args.num_batches and not coord.should_stop():
         if args.save_predictions is None:
-          top1_predictions, top5_predictions = sess.run([top_1_op, top_5_op])
+          top1_predictions, topn_predictions = sess.run([top_1_op, top_n_op])
         else:
-          top1_predictions, top5_predictions, urls_values, label_values, top5guesses, top5conf = sess.run([top_1_op, top_5_op, urls, labels, top5ind, top5val])
+          top1_predictions, topn_predictions, urls_values, label_values, topnguesses, topnconf = sess.run([top_1_op, top_n_op, urls, labels, topnind, topnval])
           for i in xrange(0,urls_values.shape[0]):
             out_file.write(predictions_format_str%(step*args.batch_size+i+1, urls_values[i], label_values[i],
-                '[' + ', '.join('%d' % item for item in top5guesses[i]) + ']',
-                '[' + ', '.join('%.4f' % item for item in top5conf[i]) + ']'))
+                '[' + ', '.join('%d' % item for item in topnguesses[i]) + ']',
+                '[' + ', '.join('%.4f' % item for item in topnconf[i]) + ']'))
             out_file.flush()
         true_predictions_count += np.sum(top1_predictions)
-        true_top5_predictions_count += np.sum(top5_predictions)
+        true_topn_predictions_count += np.sum(topn_predictions)
         all_count+= top1_predictions.shape[0]
-        print(batch_format_str%(step, true_predictions_count, true_top5_predictions_count, true_predictions_count / all_count, true_top5_predictions_count / all_count))
+        print(batch_format_str%(step, true_predictions_count, true_topn_predictions_count, true_predictions_count / all_count, true_topn_predictions_count / all_count))
         sys.stdout.flush()
         step += 1
 
@@ -115,6 +115,7 @@ def main():
   parser.add_argument('--depth', default= 50, type= int, help= 'The depth of ResNet architecture')
   parser.add_argument('--log_dir', default= None, action= 'store', help='Path for saving Tensorboard info and checkpoints')
   parser.add_argument('--save_predictions', default= None, action= 'store', help= 'Save top-5 predictions of the networks along with their confidence in the specified file')
+  parser.add_argument('--top_n', default= 5, type= int, action= 'store', help= 'Specify the top-N accuracy')
 
   args = parser.parse_args()
   args.num_samples = sum(1 for line in open(args.data_info))
