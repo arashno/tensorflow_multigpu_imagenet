@@ -25,8 +25,4 @@ python eval.py --num_threads 8 --architecture alexnet --log_dir "alexnet_Run-17-
 
 Transfer learning:
 
-python transfer.py --architecture alexnet --load_pretrained_dir ./alexnet_Run-17-07-2017-15:31:57
-
-Evaluate a transferred model:
-
-python transfer_eval.py --num_threads 4 --architecture alexnet  --log_dir ./alexnet_Run-18-07-2017-14:08:14 --delimiter , --save_predictions trnpred.txt --path_prefix /project/dataset2
+python train.py --transfer_mode 1 --architecture alexnet --retrain_from ./alexnet_Run-17-07-2017-15:31:57
