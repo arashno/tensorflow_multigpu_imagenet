@@ -1,9 +1,10 @@
 # tensorflow_multigpu_imagenet
-Code for training different architectures( DenseNet, ResNet, AlexNet, GoogLeNet, VGG, NiN) on ImageNet dataset + Multi-GPU support + Transfer Learning support
+Code for training different architectures( DenseNet, ResNet, AlexNet, GoogLeNet, VGG, NiN) on ImageNet or other datasets + Multi-GPU support + Transfer Learning support
 
 This repository provides an easy-to-use way for training different well-known deep learning architectures on different datasets.
-The code directly load images from disk. Moreover, multi-GPU and transfer learning is also supported.
-This code is mainly based on these repositories:
+The code reads dataset information from a text or csv file and directly loads images from disk. Moreover, multi-GPU and transfer learning are supported.
+
+This code takes advantage of these repositories:
 
 https://github.com/soumith/imagenet-multiGPU.torch
 
@@ -17,11 +18,11 @@ https://github.com/tensorflow/models/tree/master/tutorials/image/cifar10
 
 Training:
 
-python train.py --path_prefix /project/datasets/imagenet/train/
+python train.py --architecture alexnet --path_prefix /project/datasets/imagenet/train/ --data_info train.txt
 
 Evaluating a trained model:
 
-python eval.py --num_threads 8 --architecture alexnet --log_dir "alexnet_Run-17-07-2017-15:31:57" --path_prefix /project/datasets/imagenet/train/
+python eval.py --num_threads 8 --architecture alexnet --log_dir "alexnet_Run-17-07-2017-15:31:57" --path_prefix /project/datasets/imagenet/train/ --data_info val.txt
 
 Transfer learning:
 

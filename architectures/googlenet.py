@@ -1,6 +1,7 @@
 import tensorflow as tf
 import common
 
+# An implementation of this paper: https://arxiv.org/pdf/1409.4842.pdf
 def inception(x, conv1_size, conv3_size, conv5_size, pool1_size, wd, is_training):
   with tf.variable_scope("conv_1"):
     conv1 = common.spatialConvolution(x, 1, 1, conv1_size, wd= wd)

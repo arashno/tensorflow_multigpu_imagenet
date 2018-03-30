@@ -5,6 +5,7 @@ import architectures.googlenet
 import architectures.nin
 import architectures.densenet
 
+# Get different architectures based on the input arguments
 def get_model(inputs, wd, is_training, args, transferMode= False):
     if args.architecture=='alexnet':
         return architectures.alexnet.inference(inputs, args.num_classes, wd, 0.5 if is_training else 1.0, is_training, transferMode)

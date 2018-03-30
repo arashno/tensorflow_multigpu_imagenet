@@ -1,6 +1,7 @@
 import tensorflow as tf
 import common
 
+# Sub-network Block
 def block(x, spec, wd, is_training):
   with tf.variable_scope('conv1'):
     nin = common.spatialConvolution(x, spec[0], spec[1], spec[2], wd= wd)
@@ -16,6 +17,7 @@ def block(x, spec, wd, is_training):
     nin = tf.nn.relu(nin)
   return nin
 
+# NiN architecture
 def inference(x, num_output, wd, is_training, transfer_mode= False):
     with tf.variable_scope('block1'):
       network = block(x, [11, 4, 96], wd, is_training)

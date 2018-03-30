@@ -1,6 +1,7 @@
 import tensorflow as tf
 import common
 
+# The VGG architecture, the default type is 'A'
 def inference(x, num_output, wd, dropout_rate, is_training, transfer_mode= False, model_type= 'A'):
    # Create tables describing VGG configurations A, B, D, E
    if model_type == 'A':

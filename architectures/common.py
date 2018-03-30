@@ -7,6 +7,8 @@ from math import sqrt
 RESNET_VARIABLES = 'resnet_variables'
 TOWER_NAME = 'Tower'
 
+# Allocate a variable with the specified parameters 
+# name of the variables, shape of the variable, initialization method, regularization method, data type, trainable or not
 def _get_variable(name,
                   shape,
                   initializer,
@@ -27,6 +29,7 @@ def _get_variable(name,
 
     return var
 
+# BatchNorm layer
 def batchNormalization(x, is_training= True, decay= 0.9, epsilon= 0.001):
     x_shape = x.get_shape()
     params_shape = x_shape[-1:]
@@ -64,7 +67,7 @@ def batchNormalization(x, is_training= True, decay= 0.9, epsilon= 0.001):
     else:
       return tf.nn.batch_normalization(x, moving_mean, moving_variance, beta, gamma, epsilon)
 
-
+# Flatten Layer
 def flatten(x):
     shape = x.get_shape().as_list()
     dim = 1
@@ -72,9 +75,11 @@ def flatten(x):
       dim*=shape[i]
     return tf.reshape(x, [-1, dim])
 
+# Treshhold Layer (Like ReLU)
 def treshold(x, treshold):
     return tf.cast(x > treshold, x.dtype) * x
 
+# Fully Connected layer
 def fullyConnected(x, num_units_out, wd= 0.0, weight_initializer= None, bias_initializer= None):
     num_units_in = x.get_shape()[1]
 
@@ -92,6 +97,7 @@ def fullyConnected(x, num_units_out, wd= 0.0, weight_initializer= None, bias_ini
                            
     return tf.nn.xw_plus_b(x, weights, biases)
 
+# Convolution Layer
 def spatialConvolution(x, ksize, stride, filters_out, wd= 0.0, weight_initializer= None, bias_initializer= None):
     filters_in = x.get_shape()[-1]
     stddev = 1./tf.sqrt(tf.cast(filters_out, tf.float32))
@@ -108,19 +114,22 @@ def spatialConvolution(x, ksize, stride, filters_out, wd= 0.0, weight_initialize
     biases = _get_variable('biases', [filters_out],  bias_initializer)
             
     return tf.nn.bias_add(conv, biases)
-    
+
+# Max Pooling Layer
 def maxPool(x, ksize, stride):
     return tf.nn.max_pool(x,
                           ksize=[1, ksize, ksize, 1],
                           strides=[1, stride, stride, 1],
                           padding='SAME')
 
+# Average Pooling Layer
 def avgPool(x, ksize, stride, padding='SAME'):
     return tf.nn.avg_pool(x,
                           ksize=[1, ksize, ksize, 1],
                           strides=[1, stride, stride, 1],
                           padding= padding)
-    
+
+# ResNet Stack (will be moved into resnet.py in future)
 def resnetStack(x, num_blocks, stack_stride, block_filters_internal, bottleneck, wd= 0.0, is_training= True):
     for n in range(num_blocks):
         s = stack_stride if n == 0 else 1
@@ -129,7 +138,7 @@ def resnetStack(x, num_blocks, stack_stride, block_filters_internal, bottleneck,
             x = resnetBlock(x, bottleneck, block_filters_internal, block_stride, wd= wd, is_training= is_training)
     return x
 
-
+# ResNet Block (will be moved into resnet.py in future)
 def resnetBlock(x, bottleneck, block_filters_internal, block_stride, wd= 0.0, is_training= True):
     filters_in = x.get_shape()[-1]
 
@@ -168,7 +177,7 @@ def resnetBlock(x, bottleneck, block_filters_internal, block_stride, wd= 0.0, is
             x = tf.nn.relu(x)
 
         with tf.variable_scope('B'):
-            x = spatialConvolution(x, 1, 1, filters_out, weight_initializer= conv_weight_initializer, wd= wd)
+            x = spatialConvolution(x, 3, 1, filters_out, weight_initializer= conv_weight_initializer, wd= wd)
             x = batchNormalization(x, is_training= is_training)
 
     with tf.variable_scope('shortcut'):

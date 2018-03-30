@@ -53,7 +53,7 @@ def read_inputs(is_training, args):
          'This may take some times.' % min_queue_examples)
   batch_size = args.chunked_batch_size if is_training else args.batch_size
 
-  # Load images and labels with additional info 
+  # Load images and labels with additional info and return batches
   if hasattr(args, 'save_predictions') and args.save_predictions is not None:
     images, label_batch, info = tf.train.batch(
         [reshaped_image, label, img_info],

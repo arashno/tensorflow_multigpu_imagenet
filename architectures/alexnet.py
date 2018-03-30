@@ -1,6 +1,7 @@
 import tensorflow as tf
 import common
 
+#AlexNet architecture
 def inference(x, num_output, wd, dropout_rate, is_training, transfer_mode= False):
     
     with tf.variable_scope('conv1'):

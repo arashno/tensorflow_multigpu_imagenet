@@ -3,7 +3,7 @@ from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.training import moving_averages
 import common
 
-
+# Build the model based on the depth arg
 def inference(x, depth, num_output, wd, is_training, transfer_mode= False):
     num_blockes= []
     bottleneck= False
@@ -23,7 +23,7 @@ def inference(x, depth, num_output, wd, is_training, transfer_mode= False):
 
     return getModel(x, num_output, wd, is_training, num_blocks= num_blocks, bottleneck= bottleneck, transfer_mode= transfer_mode)
 
-
+# a helper function to have a more organized code
 def getModel(x, num_output, wd, is_training, num_blocks=[3, 4, 6, 3],  # defaults to 50-layer network
               bottleneck= True, transfer_mode= False):
     conv_weight_initializer = tf.truncated_normal_initializer(stddev= 0.1)
