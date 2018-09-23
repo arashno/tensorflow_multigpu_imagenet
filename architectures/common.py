@@ -1,11 +1,8 @@
 import tensorflow as tf
-import re
 from tensorflow.python.training import moving_averages
 from tensorflow.python.ops import control_flow_ops
-from math import sqrt
 
-RESNET_VARIABLES = 'resnet_variables'
-TOWER_NAME = 'Tower'
+SAVE_VARIABLES = 'save_variables'
 
 # Allocate a variable with the specified parameters 
 # name of the variables, shape of the variable, initialization method, regularization method, data type, trainable or not
@@ -16,8 +13,8 @@ def _get_variable(name,
                   dtype= 'float',
                   trainable= True):
     "A little wrapper around tf.get_variable to do weight decay and add to"
-    "resnet collection"
-    collections = [tf.GraphKeys.GLOBAL_VARIABLES, RESNET_VARIABLES]
+    "SAVE collection"
+    collections = [tf.GraphKeys.GLOBAL_VARIABLES, SAVE_VARIABLES]
     with tf.device('/cpu:0'):
       var = tf.get_variable(name,
                            shape= shape,
@@ -30,7 +27,7 @@ def _get_variable(name,
     return var
 
 # BatchNorm layer
-def batchNormalization(x, is_training= True, decay= 0.9, epsilon= 0.001):
+def batchNormalization(x, is_training, decay= 0.9, epsilon= 0.001, inference_only= False):
     x_shape = x.get_shape()
     params_shape = x_shape[-1:]
 
@@ -55,23 +52,21 @@ def batchNormalization(x, is_training= True, decay= 0.9, epsilon= 0.001):
 
     # These ops will only be preformed when training.
 
-    if is_training:
-      mean, variance = tf.nn.moments(x, axis)
-      update_moving_mean = moving_averages.assign_moving_average(moving_mean,
+    
+    mean, variance = tf.nn.moments(x, axis)
+    update_moving_mean = moving_averages.assign_moving_average(moving_mean,
                                                                mean, decay)
-      update_moving_variance = moving_averages.assign_moving_average(
+    update_moving_variance = moving_averages.assign_moving_average(
         moving_variance, variance, decay)
-      tf.add_to_collection(tf.GraphKeys.UPDATE_OPS , update_moving_mean)
-      tf.add_to_collection(tf.GraphKeys.UPDATE_OPS , update_moving_variance)
-      return tf.nn.batch_normalization(x, mean, variance, beta, gamma, epsilon)
-    else:
-      return tf.nn.batch_normalization(x, moving_mean, moving_variance, beta, gamma, epsilon)
-
+    tf.add_to_collection(tf.GraphKeys.UPDATE_OPS , update_moving_mean)
+    tf.add_to_collection(tf.GraphKeys.UPDATE_OPS , update_moving_variance)
+    return tf.cond(is_training, lambda: tf.nn.batch_normalization(x, mean, variance, beta, gamma, epsilon), lambda: tf.nn.batch_normalization(x, moving_mean, moving_variance, beta, gamma, epsilon))
+    #return tf.contrib.layers.batch_norm(x, decay= decay, epsilon= epsilon, is_training= is_training)
 # Flatten Layer
 def flatten(x):
     shape = x.get_shape().as_list()
     dim = 1
-    for i in xrange(1,len(shape)):
+    for i in range(1,len(shape)):
       dim*=shape[i]
     return tf.reshape(x, [-1, dim])
 
@@ -80,7 +75,7 @@ def treshold(x, treshold):
     return tf.cast(x > treshold, x.dtype) * x
 
 # Fully Connected layer
-def fullyConnected(x, num_units_out, wd= 0.0, weight_initializer= None, bias_initializer= None):
+def fullyConnected(x, num_units_out, wd= 0.0, weight_initializer= None, bias_initializer= None, inference_only= False):
     num_units_in = x.get_shape()[1]
 
     stddev = 1./tf.sqrt(tf.cast(num_units_out, tf.float32))
@@ -98,7 +93,7 @@ def fullyConnected(x, num_units_out, wd= 0.0, weight_initializer= None, bias_ini
     return tf.nn.xw_plus_b(x, weights, biases)
 
 # Convolution Layer
-def spatialConvolution(x, ksize, stride, filters_out, wd= 0.0, weight_initializer= None, bias_initializer= None):
+def spatialConvolution(x, ksize, stride, filters_out, wd= 0.0, weight_initializer= None, bias_initializer= None, inference_only= False):
     filters_in = x.get_shape()[-1]
     stddev = 1./tf.sqrt(tf.cast(filters_out, tf.float32))
     if weight_initializer is None:
@@ -128,63 +123,3 @@ def avgPool(x, ksize, stride, padding='SAME'):
                           ksize=[1, ksize, ksize, 1],
                           strides=[1, stride, stride, 1],
                           padding= padding)
-
-# ResNet Stack (will be moved into resnet.py in future)
-def resnetStack(x, num_blocks, stack_stride, block_filters_internal, bottleneck, wd= 0.0, is_training= True):
-    for n in range(num_blocks):
-        s = stack_stride if n == 0 else 1
-        block_stride = s
-        with tf.variable_scope('block%d' % (n + 1)):
-            x = resnetBlock(x, bottleneck, block_filters_internal, block_stride, wd= wd, is_training= is_training)
-    return x
-
-# ResNet Block (will be moved into resnet.py in future)
-def resnetBlock(x, bottleneck, block_filters_internal, block_stride, wd= 0.0, is_training= True):
-    filters_in = x.get_shape()[-1]
-
-    # Note: filters_out isn't how many filters are outputed. 
-    # That is the case when bottleneck=False but when bottleneck is 
-    # True, filters_internal*4 filters are outputted. filters_internal is how many filters
-    # the 3x3 convs output internally.
-    m = 4 if bottleneck else 1
-    filters_out = m * block_filters_internal
-
-    shortcut = x  # branch 1
-
-    conv_filters_out = block_filters_internal
-
-    
-    conv_weight_initializer = tf.truncated_normal_initializer(stddev= 0.1)
-
-    if bottleneck:
-        with tf.variable_scope('a'):
-            x = spatialConvolution(x, 1, block_stride, conv_filters_out, weight_initializer= conv_weight_initializer, wd= wd)
-            x = batchNormalization(x, is_training= is_training)
-            x = tf.nn.relu(x)
-
-        with tf.variable_scope('b'):
-            x = spatialConvolution(x, 3, 1, conv_filters_out, weight_initializer= conv_weight_initializer, wd= wd)
-            x = batchNormalization(x, is_training= is_training)
-            x = tf.nn.relu(x)
-
-        with tf.variable_scope('c'):
-            x = spatialConvolution(x, 1, 1, filters_out, weight_initializer= conv_weight_initializer, wd= wd)
-            x = batchNormalization(x, is_training= is_training)
-    else:
-        with tf.variable_scope('A'):
-            x = spatialConvolution(x, 3, block_stride, conv_filters_out, weight_initializer= conv_weight_initializer, wd= wd)
-            x = batchNormalization(x, is_training= is_training)
-            x = tf.nn.relu(x)
-
-        with tf.variable_scope('B'):
-            x = spatialConvolution(x, 3, 1, filters_out, weight_initializer= conv_weight_initializer, wd= wd)
-            x = batchNormalization(x, is_training= is_training)
-
-    with tf.variable_scope('shortcut'):
-        if filters_out != filters_in or block_stride != 1:
-            shortcut = spatialConvolution(shortcut, 1, block_stride, filters_out, weight_initializer= conv_weight_initializer, wd= wd)
-            shortcut = batchNormalization(shortcut, is_training= is_training)
-
-    return tf.nn.relu(x + shortcut)
-
-
