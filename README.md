@@ -39,7 +39,9 @@ Use the --delimiter option to specify the delimiter character, and --path_prefix
 
 For training execute run.py with train command and your appropriate argument. For example, to train the VGG architecture on the ImageNet dataset with Adam optimizer for 50 epochs execute this: 
 
+``bash
 python run.py train --architecture vgg --path_prefix /path..to..train/ --train_info train.txt --optimizer adam --num_epochs 50 
+```
 
 To evaluate a trained model:
 
