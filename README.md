@@ -43,19 +43,19 @@ For training execute run.py with train command and your appropriate argument. Fo
 python run.py train --architecture vgg --path_prefix /path..to..train/ --train_info train.txt --optimizer adam --num_epochs 50 
 ```
 
-To evaluate a trained model:
+To evaluate a trained model (example):
 
 ```bash
 python run.py eval --num_threads 8 --architecture alexnet --log_dir "alexnet_Run-17-07-2017-15:31:57" --path_prefix /project/datasets/imagenet/train/ --val_info val.txt
 ```
 
-To test a trained model on data:
+To test a trained model on data (example):
 
 ```bash
 python run.py inference --num_threads 8 --architecture alexnet --log_dir "alexnet_Run-17-07-2017-15:31:57" --path_prefix /project/datasets/imagenet/train/ --val_info val.txt --save_predictions preds.txt
 ```
 
-Transfer learning:
+Transfer learning (example):
 
 ```bash
 python run.py train --transfer_mode 1 --architecture alexnet --retrain_from ./alexnet_Run-17-07-2017-15:31:57 --optimizer momentum --LR_policy constant --LR_details 0.001
