@@ -17,6 +17,7 @@ import tensorflow as tf
 
 from data_loader import loader
 from architectures.model import model
+from architectures.common import SAVE_VARIABLES
 import sys
 import argparse
 import utils
@@ -43,8 +44,8 @@ def do_train(sess, args):
     is_training_ph= tf.placeholder(tf.bool, name='is_training')
 
     #epoch number
-    epoch_number = tf.get_variable('epoch_number', [], dtype= tf.int32, initializer= tf.constant_initializer(0), trainable= False)
-    global_step = tf.get_variable('global_step', [], dtype= tf.int32, initializer= tf.constant_initializer(0), trainable= False)
+    epoch_number = tf.get_variable('epoch_number', [], dtype= tf.int32, initializer= tf.constant_initializer(0), trainable= False, collections=[tf.GraphKeys.GLOBAL_VARIABLES, SAVE_VARIABLES])
+    global_step = tf.get_variable('global_step', [], dtype= tf.int32, initializer= tf.constant_initializer(0), trainable= False, collections=[tf.GraphKeys.GLOBAL_VARIABLES, SAVE_VARIABLES])
 
     # Weight Decay policy
     wd = utils.get_policy(args.WD_policy, args.WD_details)
@@ -60,7 +61,8 @@ def do_train(sess, args):
 
     # Create a pipeline to read data from disk
     # a placeholder for setting the input pipeline batch size. This is employed to ensure that we feed each validation example only once to the network.
-    batch_size_tf= tf.placeholder_with_default(args.batch_size, shape=())
+    # Because we only use 1 GPU for validation, the validation batch size should not be more than 512.
+    batch_size_tf= tf.placeholder_with_default(min(512, args.batch_size), shape=())
 
     # A data loader pipeline to read training images and their labels
     train_loader= loader(args.train_info, args.delimiter, args.raw_size, args.processed_size, True, args.chunked_batch_size, args.num_prefetch, args.num_threads, args.path_prefix, args.shuffle)
@@ -101,7 +103,6 @@ def do_train(sess, args):
       print("Epoch %d started"%(epoch))
       # Trainig batches
       for step in range(args.num_batches):
-        
         sess.run(global_step.assign(step+epoch*args.num_batches))
         # train the network on a batch of data (It also measures time)
         start_time = time.time()
@@ -154,7 +155,7 @@ def do_train(sess, args):
         # The validation loop
         for step in range(args.num_val_batches):
           # Load a batch of data
-          val_img,val_lbl = sess.run([val_images, val_labels], feed_dict={batch_size_tf: args.num_val_samples%args.batch_size} if step== args.num_val_batches-1 else None, 
+          val_img,val_lbl = sess.run([val_images, val_labels], feed_dict={batch_size_tf: args.num_val_samples%min(512, args.batch_size)} if step== args.num_val_batches-1 else None, 
                   options= args.run_options, run_metadata= args.run_metadata)
 
           # validate the network on the loaded batch
@@ -165,8 +166,9 @@ def do_train(sess, args):
           true_predictions_count += int(round(val_lbl.shape[0]*top1_predictions))
           true_topn_predictions_count += int(round(val_lbl.shape[0]*topn_predictions))
           total_loss += val_loss*val_lbl.shape[0]
-          print("Validation step %d of %d"%(step, args.num_val_batches))
-          sys.stdout.flush()
+          if step%10==0:
+            print("Validation step %d of %d"%(step, args.num_val_batches))
+            sys.stdout.flush()
 
         print("Total number of validation examples %d, Loss %.2f, Top-1 Accuracy %.2f, Top-%d Accuracy %.2f" %
                 (all_count, total_loss/all_count, true_predictions_count/all_count, args.top_n, true_topn_predictions_count/all_count))

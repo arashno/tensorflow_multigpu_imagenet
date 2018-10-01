@@ -13,6 +13,8 @@ import tensorflow as tf
 import sys
 import argparse
 
+from architectures.common import SAVE_VARIABLES
+
 """
 This methods counts the number of examples in an input file and calculates the number of batches for each epoch.
 Args:
@@ -62,11 +64,11 @@ def get_policy(policy_type, details_str):
     length = len(details)
     assert length%2==1, 'Invalid policy details'
     assert all(item.is_integer() for item in details[0:int((length-1)/2)]), 'Invalid policy details'
-    return tf.train.piecewise_constant(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="epoch_number")[0], [int(x) for x in details[0:int((length-1)/2)]], details[int((length-1)/2):])
+    return tf.train.piecewise_constant(tf.get_collection(SAVE_VARIABLES, scope="epoch_number")[0], [int(x) for x in details[0:int((length-1)/2)]], details[int((length-1)/2):])
   if policy_type=='exponential':
     details= [float(x) for x in details_str.split(',')]
     assert details[1].is_integer(), 'Invalid policy details'
-    return tf.train.exponential_decay(details[0], tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='global_step')[0], int(details[1]), details[2], staircase=False)
+    return tf.train.exponential_decay(details[0], tf.get_collection(SAVE_VARIABLES, scope='global_step')[0], int(details[1]), details[2], staircase=False)
 
 
 """

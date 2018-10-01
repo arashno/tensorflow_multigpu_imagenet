@@ -188,7 +188,7 @@ class model:
       batchnorm_updates_op = tf.group(*batchnorm_updates)
       train_op = tf.group(self.optimizer.apply_gradients(grads), batchnorm_updates_op)
     if self.transfer_mode[0]==3:
-      train_op = tf.cond(tf.less(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="epoch_number")[0],self.transfer_mode[1]),
+      train_op = tf.cond(tf.less(tf.get_collection(SAVE_VARIABLES, scope="epoch_number")[0],self.transfer_mode[1]),
               lambda: tf.group(self.optimizer.apply_gradients(last_grads),*batchnorm_updates), lambda: tf.group(self.optimizer.apply_gradients(grads),*batchnorm_updates))
 
     return [train_op, cross_entropy_mean, top1acc, topnacc]
