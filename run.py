@@ -100,7 +100,7 @@ def do_train(sess, args):
       # update epoch_number
       sess.run(epoch_number.assign(epoch))
 
-      print("Epoch %d started"%(epoch))
+      print("Epoch %d of %d started"%(epoch, start_epoch+ args.num_epochs-1))
       # Trainig batches
       for step in range(args.num_batches):
         sess.run(global_step.assign(step+epoch*args.num_batches))
@@ -126,8 +126,8 @@ def do_train(sess, args):
           sec_per_batch = duration / args.num_gpus
           
           # Log
-          format_str = ('%s: epoch %d, step %d, loss = %.2f, Top-1 = %.2f Top-'+str(args.top_n)+' = %.2f (%.1f examples/sec; %.3f sec/batch)')
-          print(format_str % (datetime.now(), epoch, step, loss_value, top1_accuracy, topn_accuracy, examples_per_sec, sec_per_batch))
+          format_str = ('%s: epoch %d of %d, step %d of %d, loss = %.2f, Top-1 = %.2f Top-'+str(args.top_n)+' = %.2f (%.1f examples/sec; %.3f sec/batch)')
+          print(format_str % (datetime.now(), epoch, start_epoch + args.num_epochs-1, step, args.num_batches, loss_value, top1_accuracy, topn_accuracy, examples_per_sec, sec_per_batch))
           sys.stdout.flush()
         
         if step % 100 == 0:
@@ -140,17 +140,15 @@ def do_train(sess, args):
       checkpoint_path = os.path.join(args.log_dir, args.snapshot_prefix)
       dnn_model.save(sess, checkpoint_path, global_step= epoch)
 
-      print("Epoch %d ended. a checkpoint saved at %s"%(epoch,args.log_dir))
+      print("Epoch %d of %d ended. a checkpoint saved at %s"%(epoch, start_epoch + args.num_epochs-1, args.log_dir))
       sys.stdout.flush()
       # if validation data are provided, evaluate accuracy on the validation set after the end of each epoch
       if args.run_validation:
 
         print("Evaluating on validation set")
-
-        true_predictions_count = 0  # Counts the number of correct predictions
-        true_topn_predictions_count = 0 # Counts the number of top-n correct predictions
-        total_loss= 0.0 # measures cross entropy loss
-        all_count = 0 # Count the total number of examples
+        total_loss = utils.AverageMeter() # Measures cross entropy loss
+        top1 = utils.AverageMeter() # Measures top-1 accuracy
+        topn = utils.AverageMeter() # Measures top-n accuracy
 
         # The validation loop
         for step in range(args.num_val_batches):
@@ -162,17 +160,14 @@ def do_train(sess, args):
           val_loss, top1_predictions, topn_predictions = sess.run([train_ops[1], train_ops[2], train_ops[3]], feed_dict={ images_ph: val_img, labels_ph: val_lbl, is_training_ph: False}, 
                   options= args.run_options, run_metadata= args.run_metadata)
 
-          all_count += val_lbl.shape[0]
-          true_predictions_count += int(round(val_lbl.shape[0]*top1_predictions))
-          true_topn_predictions_count += int(round(val_lbl.shape[0]*topn_predictions))
-          total_loss += val_loss*val_lbl.shape[0]
-          if step%10==0:
-            print("Validation step %d of %d"%(step, args.num_val_batches))
-            sys.stdout.flush()
+          current_batch_size= val_lbl.shape[0]
+          total_loss.update(val_loss, current_batch_size)
+          top1.update(top1_predictions, current_batch_size)
+          topn.update(topn_predictions, current_batch_size)
 
-        print("Total number of validation examples %d, Loss %.2f, Top-1 Accuracy %.2f, Top-%d Accuracy %.2f" %
-                (all_count, total_loss/all_count, true_predictions_count/all_count, args.top_n, true_topn_predictions_count/all_count))
-        sys.stdout.flush()
+          if step%10==0 or step== args.num_val_batches-1:
+            print("Validation step %d of %d, Loss %.2f, Top-1 Accuracy %.2f, Top-%d Accuracy %.2f "%(step, args.num_val_batches, total_loss.avg, top1.avg, args.top_n, topn.avg))
+            sys.stdout.flush()
 
     coord.request_stop()
     coord.join(threads)
@@ -230,14 +225,14 @@ def do_evaluate(sess, args):
 
     # evaluation 
     if not args.inference_only:
-      true_predictions_count = 0  # Counts the number of correct predictions
-      true_topn_predictions_count = 0 # Counts the number of correct top-n predictions
-      total_loss= 0.0 # Measures cross entropy loss
-      all_count = 0 # Counts the total number of examples
+      total_loss = utils.AverageMeter() # Measures cross entropy loss
+      top1 = utils.AverageMeter() # Measures top-1 accuracy
+      topn = utils.AverageMeter() # Measures top-n accuracy
 
       # Open an output file to write predictions
       out_file = open(args.save_predictions,'w')
-      predictions_format_str = ('%d, %s, %d, %s, %s\n')
+      predictions_format_str = ('%d, %s, %s, %s, %s\n')
+      
       for step in range(args.num_val_batches):
         # Load a batch of data
         val_img, val_lbl, val_inf = sess.run([val_images, val_labels, val_info],feed_dict={batch_size_tf: args.num_val_samples%args.batch_size} if step==args.num_val_batches-1 else None)
@@ -246,16 +241,16 @@ def do_evaluate(sess, args):
         val_loss, top1_predictions, topn_predictions, topnguesses, topnconf = sess.run(eval_ops, feed_dict={ images_ph: val_img, labels_ph: val_lbl, is_training_ph: False}, 
                 options= args.run_options, run_metadata= args.run_metadata)
 
-        true_predictions_count += np.sum(top1_predictions)
-        true_topn_predictions_count += np.sum(topn_predictions)
-        all_count+= top1_predictions.shape[0]
-        total_loss += val_loss*val_lbl.shape[0]
-        print('Batch Number: %d, Top-1 Hit: %d, Top-%d Hit: %d, Loss %.2f, Top-1 Accuracy: %.3f, Top-%d Accuracy: %.3f'%
-        (step, true_predictions_count, args.top_n, true_topn_predictions_count, total_loss/all_count, true_predictions_count/all_count, args.top_n, true_topn_predictions_count/all_count))
+        current_batch_size= val_lbl.shape[0]
+        total_loss.update(val_loss, current_batch_size)
+        top1.update(top1_predictions, current_batch_size)
+        topn.update(topn_predictions, current_batch_size)
+        print('Batch Number: %d of %d, Top-1 Hit: %d, Top-%d Hit: %d, Loss %.2f, Top-1 Accuracy: %.2f, Top-%d Accuracy: %.2f'%
+        (step, args.num_val_batches, top1.sum, args.top_n, topn.sum, total_loss.avg, top1.avg, args.top_n, topn.avg))
 
         # log results into an output file
         for i in range(0,val_inf.shape[0]):
-          out_file.write(predictions_format_str%(step*args.batch_size+i+1, str(val_inf[i]).encode('utf-8'), val_lbl[i],
+          out_file.write(predictions_format_str%(step*args.batch_size+i+1, val_inf[i], val_loader.label_dict[val_lbl[i]],
           ', '.join('%d' % item for item in topnguesses[i]),
           ', '.join('%.4f' % item for item in topnconf[i])))
           out_file.flush()
@@ -270,7 +265,7 @@ def do_evaluate(sess, args):
 
       for step in range(args.num_val_batches):
         # Load a batch of data
-        val_img, val_inf = sess.run([val_images, val_info],feed_dict={batch_size_tf: args.num_val_samples%args.batch_size} if step==args.num_val_batches-1 else None)
+        val_img, val_inf = sess.run([val_images, val_info], feed_dict={batch_size_tf: args.num_val_samples%args.batch_size} if step==args.num_val_batches-1 else None)
 
         # Run the network on the loaded batch
         topnguesses, topnconf = sess.run(eval_ops, feed_dict={ images_ph: val_img, is_training_ph: False}, options= args.run_options, run_metadata= args.run_metadata)
@@ -278,7 +273,7 @@ def do_evaluate(sess, args):
 
         # Log to an output file
         for i in range(0,val_inf.shape[0]):
-          out_file.write(predictions_format_str%(step*args.batch_size+i+1, str(val_inf[i]).encode('utf-8'),
+          out_file.write(predictions_format_str%(step*args.batch_size+i+1, val_inf[i],
           ', '.join('%d' % item for item in topnguesses[i]),
           ', '.join('%.4f' % item for item in topnconf[i])))
           out_file.flush()
@@ -392,6 +387,8 @@ def main():  # pylint: disable=unused-argument
 
       # do testing
       do_evaluate(sess, args)
+    else:
+      print("Command not found")
 
 if __name__ == '__main__':
   main()

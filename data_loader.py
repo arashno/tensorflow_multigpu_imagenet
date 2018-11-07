@@ -64,14 +64,25 @@ class loader:
       for line in f:
         tokens = line.split(self.delimiter)
         filepaths.append(tokens[0])
-        labels.append(int(tokens[1]))
+        labels.append(tokens[1].rstrip().lower())
+      # assign class ids
+      self.label_set = set(labels)
+      if all([ x.isdigit() for x in self.label_set]):
+         print("found %d classes"%(len(self.label_set)))
+         self.label_dict= {int(x): int(x) for x in sorted(self.label_set)}
+         labels= [int(x) for x in labels]
+      else:
+         print("found %d classes"%(len(self.label_set)))
+         self.label_dict= {i: x for i,x in enumerate(sorted(self.label_set))}
+         labels= [dict(zip(self.label_dict.values(), self.label_dict.keys()))[x] for x in labels]
+      print(self.label_dict)
       # return results
       return filepaths, labels
 
     else:
       # loop to read rows
       for line in f:
-          filepaths.append(line[:-1])
+          filepaths.append(line.rstrip())
       # return results
       return filepaths, None
 

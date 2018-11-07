@@ -16,6 +16,26 @@ import argparse
 from architectures.common import SAVE_VARIABLES
 
 """
+A simple utility class for computing averages of loss and accuracies
+"""
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+"""
 This methods counts the number of examples in an input file and calculates the number of batches for each epoch.
 Args:
     filename: the name of the input file

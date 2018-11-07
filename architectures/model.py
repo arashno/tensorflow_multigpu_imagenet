@@ -237,9 +237,11 @@ class model:
         cross_entropy_mean = self.loss(logits, self.labels)
 
         # Calculate predictions accuracies top-1 and top-n
-        top_1_op = tf.nn.in_top_k(logits, self.labels, 1)
-        top_n_op = tf.nn.in_top_k(logits, self.labels, self.top_n)
-        return [cross_entropy_mean, top_1_op, top_n_op, topnind, topnval]
+        top1acc = tf.reduce_mean(tf.cast(tf.nn.in_top_k(logits, self.labels, 1), tf.float32))
+        
+        topnacc = tf.reduce_mean(tf.cast(tf.nn.in_top_k(logits, self.labels, self.top_n), tf.float32))
+
+        return [cross_entropy_mean, top1acc, topnacc, topnind, topnval]
       else:
         return [topnind,topnval]
 

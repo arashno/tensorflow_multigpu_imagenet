@@ -13,6 +13,7 @@ More options for selecting optimization algorithm\
 More options for learning rate and weight decay policies\
 Tuned architectures and bug fix\
 More readable code
+Now supports named classes in CSV file
 **************************
 
 This code got inspiration from these repositories:
