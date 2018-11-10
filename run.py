@@ -57,7 +57,7 @@ def do_train(sess, args):
     optimizer = utils.get_optimizer(args.optimizer, lr)
 
     # build the computational graph using the provided configuration.
-    dnn_model= model(images_ph, labels_ph, utils.loss, optimizer, wd, args.architecture, args.depth, args.num_classes, is_training_ph, args.transfer_mode, num_gpus= args.num_gpus)
+    dnn_model= model(images_ph, labels_ph, utils.loss, optimizer, wd, args.architecture, args.num_classes, is_training_ph, args.transfer_mode, num_gpus= args.num_gpus)
 
     # Create a pipeline to read data from disk
     # a placeholder for setting the input pipeline batch size. This is employed to ensure that we feed each validation example only once to the network.
@@ -194,7 +194,7 @@ def do_evaluate(sess, args):
     is_training_ph= tf.placeholder(tf.bool, name='is_training')
 
     # build a deep learning model using the provided configuration
-    dnn_model= model(images_ph, labels_ph, utils.loss, None, 0.0, args.architecture, args.depth, args.num_classes, is_training_ph, args.transfer_mode)
+    dnn_model= model(images_ph, labels_ph, utils.loss, None, 0.0, args.architecture, args.num_classes, is_training_ph, args.transfer_mode)
 
     # creating an input pipeline to read data from disk
     # a placeholder for setting the input pipeline batch size. This is employed to ensure that we feed each validation example only once to the network.
@@ -300,8 +300,7 @@ def main():  # pylint: disable=unused-argument
     parser.add_argument('--num_threads', default= 20, type= int, action='store', help= 'The number of threads for loading data')
     parser.add_argument('--log_dir', default= None, action= 'store', help= 'Path for saving Tensorboard info and checkpoints')
     parser.add_argument('--snapshot_prefix', default= 'snapshot', action= 'store', help= 'Prefix for checkpoint files')
-    parser.add_argument('--architecture', default= 'resnet', help= 'The DNN architecture')
-    parser.add_argument('--depth', default= 50, type= int, action= 'store', help= 'The depth of ResNet or DenseNet architecture')
+    parser.add_argument('--architecture', default= 'resnet50', help= 'The DNN architecture')
     parser.add_argument('--run_name', default= 'Run'+str(time.strftime("-%d-%m-%Y_%H-%M-%S")), action= 'store', help= 'Name of the experiment')
     parser.add_argument('--num_gpus', default= 1, type= int, action= 'store', help= 'Number of GPUs (Only for training)')
     parser.add_argument('--log_device_placement', default= False, type= bool, help= 'Whether to log device placement or not')

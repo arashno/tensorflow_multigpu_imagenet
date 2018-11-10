@@ -6,6 +6,8 @@ from .nin import *
 from .googlenet import *
 from .common import SAVE_VARIABLES
 
+import re
+
 """
 This class simulates a deep learning model.
 For more details please read the inline comments.
@@ -31,9 +33,8 @@ class model:
     max_to_keep: determines how many snapshot we want to store
     num_gpus: number of available GPUs
   """
-  def __init__(self, inputs, labels, loss, optimizer, wd, architecture, depth, num_classes, is_training, transfer_mode, top_n= 5, max_to_keep= 5, num_gpus=1):
+  def __init__(self, inputs, labels, loss, optimizer, wd, architecture, num_classes, is_training, transfer_mode, top_n= 5, max_to_keep= 5, num_gpus=1):
     self.architecture= architecture
-    self.depth= depth
     self.num_classes= num_classes
     self.is_training= is_training
     self.transfer_mode= transfer_mode
@@ -204,10 +205,12 @@ class model:
   def inference(self):
     if self.architecture.lower()=='alexnet':
       return alexnet(self.inputs, self.num_classes, self.wd, tf.where(self.is_training, 0.5, 1.0), self.is_training)
-    elif self.architecture.lower()=='resnet':
-      return resnet(self.inputs, self.num_classes, self.wd, self.is_training, self.transfer_mode, self.depth)
+    elif self.architecture.lower().startswith('resnet'):
+      depth= int(re.search('(\d+)$', self.architecture).group(0)) 
+      return resnet(self.inputs, self.num_classes, self.wd, self.is_training, self.transfer_mode, depth)
     elif self.architecture.lower()=='densenet':
-        return densenet(self.inputs, self.depth, self.num_classes, self.wd, self.is_training)
+      depth= int(re.search('(\d+)$', self.architecture).group(0)) 
+      return densenet(self.inputs, depth, self.num_classes, self.wd, self.is_training)
     elif self.architecture.lower()=='vgg':
         return vgg(self.inputs, self.num_classes, self.wd, tf.where(self.is_training, 0.5, 1.0), self.is_training)
     elif self.architecture.lower()=='googlenet':
